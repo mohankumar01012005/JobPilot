@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import { config, validateConfig } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import healthRouter from "./routes/health.routes.js";
+import profileRouter from "./routes/profile.routes.js";
+import resumeRouter from "./routes/resume.routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import "./models/index.js";
 
@@ -21,6 +23,8 @@ app.use(morgan("dev"));
 
 // API Routes
 app.use("/api", healthRouter);
+app.use("/api/profile", profileRouter);
+app.use("/api/resumes", resumeRouter);
 
 // Error Handling Middleware
 app.use(notFound);
