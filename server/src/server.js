@@ -7,6 +7,7 @@ import { config, validateConfig } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import healthRouter from "./routes/health.routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
+import "./models/index.js";
 
 const app = express();
 const PORT = config.port;
