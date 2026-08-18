@@ -9,6 +9,7 @@ import healthRouter from "./routes/health.routes.js";
 import profileRouter from "./routes/profile.routes.js";
 import resumeRouter from "./routes/resume.routes.js";
 import jobRouter from "./routes/job.routes.js";
+import jobSourceRouter from "./routes/jobSource.routes.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import "./models/index.js";
 
@@ -27,6 +28,7 @@ app.use("/api", healthRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/resumes", resumeRouter);
 app.use("/api/jobs", jobRouter);
+app.use("/api/job-sources", jobSourceRouter);
 
 // Error Handling Middleware
 app.use(notFound);

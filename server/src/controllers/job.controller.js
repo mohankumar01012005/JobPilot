@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Job, Resume, JobMatch } from "../models/index.js";
 import { normalizeJob } from "../services/jobIngestion.service.js";
 import { calculateMatch } from "../services/matching.service.js";
+import registry from "../services/adapters/registry.js";
 
 /**
  * POST /api/jobs
@@ -25,8 +26,28 @@ export const createJob = async (req, res, next) => {
       });
     }
 
+    // Resolve adapter from registry
+    const adapter = registry.getAdapter(source);
+    if (!adapter) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported job source: ${source}`,
+      });
+    }
+
+    // Transform payload using the adapter
+    let transformedPayload;
+    try {
+      transformedPayload = adapter.transform(req.body);
+    } catch (transformError) {
+      return res.status(400).json({
+        success: false,
+        message: `Failed to process source-specific data: ${transformError.message}`,
+      });
+    }
+
     // Normalize incoming payload
-    const normalized = normalizeJob(req.body);
+    const normalized = normalizeJob(transformedPayload);
 
     // Duplicate detection check
     // Check both unique sparse url and dedupHash to avoid Mongoose duplicate key errors
