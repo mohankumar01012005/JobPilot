@@ -75,6 +75,9 @@ export const normalizeJob = (payload) => {
   // 11. referralAvailable
   const referralAvailable = payload.referralAvailable === true || payload.referralAvailable === "true";
 
+  // 12. telegramMessageId
+  const telegramMessageId = payload.telegramMessageId ? String(payload.telegramMessageId).trim() : undefined;
+
   // Optional: referralDetails mapping if present
   const referralDetails = {};
   if (payload.referralDetails) {
@@ -115,6 +118,7 @@ export const normalizeJob = (payload) => {
     skillsRequired,
     referralAvailable,
     referralDetails,
+    telegramMessageId,
     normalizedTitle,
     normalizedCompany,
     dedupHash,

@@ -10,19 +10,13 @@ import registry from "../services/adapters/registry.js";
  */
 export const createJob = async (req, res, next) => {
   try {
-    const { title, company, description, source } = req.body;
+    const { source } = req.body;
 
-    // Validate required fields
-    const missingFields = [];
-    if (!title || !title.trim()) missingFields.push("title");
-    if (!company || !company.trim()) missingFields.push("company");
-    if (!description || !description.trim()) missingFields.push("description");
-    if (!source || !source.trim()) missingFields.push("source");
-
-    if (missingFields.length > 0) {
+    // Validate source field is present
+    if (!source || !source.trim()) {
       return res.status(400).json({
         success: false,
-        message: `Missing required fields: ${missingFields.join(", ")}`,
+        message: "Missing required field: source",
       });
     }
 
@@ -43,6 +37,20 @@ export const createJob = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: `Failed to process source-specific data: ${transformError.message}`,
+      });
+    }
+
+    // Validate standard required fields on the transformed/normalized payload
+    const { title, company, description } = transformedPayload;
+    const missingFields = [];
+    if (!title || !title.trim()) missingFields.push("title");
+    if (!company || !company.trim()) missingFields.push("company");
+    if (!description || !description.trim()) missingFields.push("description");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 

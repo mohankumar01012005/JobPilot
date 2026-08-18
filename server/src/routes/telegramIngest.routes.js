@@ -1,10 +1,8 @@
 import { Router } from "express";
-import { getJobSources } from "../controllers/jobSource.controller.js";
 import { ingestTelegramJobs } from "../controllers/telegramIngest.controller.js";
 
 const router = Router();
 
-router.get("/", getJobSources);
 router.post("/telegram/ingest", ingestTelegramJobs);
 
 export default router;
