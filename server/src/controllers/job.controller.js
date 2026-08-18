@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
-import { Job } from "../models/index.js";
+import { Job, Resume, JobMatch } from "../models/index.js";
 import { normalizeJob } from "../services/jobIngestion.service.js";
+import { calculateMatch } from "../services/matching.service.js";
 
 /**
  * POST /api/jobs
@@ -136,6 +137,185 @@ export const getJobById = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data: job,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/jobs/:id/match
+ * Compares the job with all available resumes, saving/updating JobMatch records.
+ * Marks the highest-scoring match as the selected resume.
+ */
+export const runJobMatching = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID format.",
+      });
+    }
+
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found.",
+      });
+    }
+
+    // Retrieve all resumes in the database
+    const resumes = await Resume.find();
+    if (!resumes || resumes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No resumes found in the library. Please upload a resume first.",
+      });
+    }
+
+    const matchRecords = [];
+
+    // Calculate match details for each resume
+    for (const resume of resumes) {
+      const { matchScore, breakdown } = calculateMatch(job, resume);
+
+      const matchData = {
+        job: job._id,
+        resume: resume._id,
+        matchScore,
+        breakdown,
+        isSelectedResume: false,
+      };
+
+      // Upsert: prevents duplicates by querying matching job and resume references
+      const updatedMatch = await JobMatch.findOneAndUpdate(
+        { job: job._id, resume: resume._id },
+        matchData,
+        { new: true, upsert: true }
+      );
+      matchRecords.push(updatedMatch);
+    }
+
+    // Identify the best match (highest matchScore, with deterministic tie-breaker)
+    const sortedMatches = [...matchRecords].sort((a, b) => {
+      if (b.matchScore !== a.matchScore) {
+        return b.matchScore - a.matchScore;
+      }
+      return String(b.resume).localeCompare(String(a.resume)); // deterministic tie-breaker
+    });
+
+    const bestMatchId = sortedMatches[0]._id;
+
+    // Reset isSelectedResume to false for all other match records of this job
+    await JobMatch.updateMany(
+      { job: job._id, _id: { $ne: bestMatchId } },
+      { $set: { isSelectedResume: false } }
+    );
+
+    // Set isSelectedResume to true on the best match record
+    await JobMatch.findByIdAndUpdate(
+      bestMatchId,
+      { $set: { isSelectedResume: true } },
+      { new: true }
+    );
+
+    // Fetch updated matches populated with resume details
+    const allMatches = await JobMatch.find({ job: job._id })
+      .populate("resume")
+      .sort({ matchScore: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Job-to-Resume matching completed successfully.",
+      data: allMatches,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/jobs/:id/matches
+ * Returns all resume matches for the job, ordered by score descending.
+ */
+export const getJobMatches = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID format.",
+      });
+    }
+
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found.",
+      });
+    }
+
+    const matches = await JobMatch.find({ job: id })
+      .populate("resume")
+      .sort({ matchScore: -1 });
+
+    return res.status(200).json({
+      success: true,
+      data: matches,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/jobs/:id/best-resume
+ * Returns the best matching resume and its match details.
+ */
+export const getBestResume = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid job ID format.",
+      });
+    }
+
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found.",
+      });
+    }
+
+    const bestMatch = await JobMatch.findOne({ job: id, isSelectedResume: true })
+      .populate("resume");
+
+    if (!bestMatch) {
+      const matchCount = await JobMatch.countDocuments({ job: id });
+      if (matchCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No resume matches calculated for this job yet. Please run match endpoint first.",
+        });
+      }
+      return res.status(404).json({
+        success: false,
+        message: "Best resume match not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: bestMatch,
     });
   } catch (error) {
     next(error);
