@@ -20,6 +20,7 @@ const jobSchema = new mongoose.Schema(
     },
     // De-duplication fields
     dedupHash: { type: String, unique: true, sparse: true }, // custom hash generated during normalization
+    telegramMessageId: { type: String, unique: true, sparse: true },
     normalizedTitle: { type: String, lowercase: true, trim: true },
     normalizedCompany: { type: String, lowercase: true, trim: true },
   },
